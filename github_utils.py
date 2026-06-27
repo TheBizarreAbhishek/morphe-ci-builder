@@ -120,6 +120,16 @@ def update_magisk_auto_updater(build_dir, repo, tag_name):
     _, current_branch, _ = run_command("git branch --show-current")
     if not current_branch:
         current_branch = "main"
+    current_branch = current_branch.strip()
+
+    # Read build.md content before checking out to preserve it
+    changelog_content = ""
+    if os.path.exists("build.md"):
+        try:
+            with open("build.md", "r") as f:
+                changelog_content = f.read()
+        except Exception as e:
+            print(f"[*] Warning: Could not read build.md: {e}", file=sys.stderr)
 
     # Fetch updates from origin
     run_command("git fetch origin")
@@ -139,12 +149,14 @@ def update_magisk_auto_updater(build_dir, repo, tag_name):
         print("[-] Failed to switch/create 'update' branch.", file=sys.stderr)
         return False
 
-    # Copy build.md to branch as changelog
-    if os.path.exists("build.md"):
-        shutil.copy2("build.md", "build.md")
-    else:
+    # Write build.md to branch as changelog
+    if changelog_content:
         with open("build.md", "w") as f:
-            f.write("# Changelog\n\nAutomated rolling releases update.\n")
+            f.write(changelog_content)
+    else:
+        if not os.path.exists("build.md"):
+            with open("build.md", "w") as f:
+                f.write("# Changelog\n\nAutomated rolling releases update.\n")
 
     # Write each update.json file
     for item in module_updates:
