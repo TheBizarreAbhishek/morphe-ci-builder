@@ -4,6 +4,7 @@ import sys
 import urllib.request
 import urllib.parse
 from html.parser import HTMLParser
+import zipfile
 
 # Standard headers to bypass basic user-agent blocks
 HEADERS = {
@@ -24,6 +25,19 @@ def download_file(url, output_path):
                 print(f"[-] Content Snippet:\n{snippet}\n", file=sys.stderr)
                 return False
             out_file.write(data)
+            
+        # Check if the zip is a bundle containing base.apk
+        try:
+            with zipfile.ZipFile(output_path, 'r') as z:
+                namelist = z.namelist()
+                if "base.apk" in namelist and "AndroidManifest.xml" not in namelist:
+                    print("[+] Downloaded file is a split APK bundle. Extracting base.apk as the target APK...")
+                    out_dir = os.path.dirname(output_path)
+                    z.extract("base.apk", path=out_dir)
+                    os.replace(os.path.join(out_dir, "base.apk"), output_path)
+        except Exception as ze:
+            print(f"[*] Warning: ZIP post-processing check failed: {ze}", file=sys.stderr)
+            
         print(f"[+] Download complete: {output_path}")
         return True
     except Exception as e:
