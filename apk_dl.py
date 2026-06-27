@@ -156,11 +156,10 @@ def download_apkmirror(apkmirror_url, version, arch, output_path):
     Scrapes and downloads a specific version and arch from APKMirror.
     """
     # 1. Access the version details page
-    cat_name = apkmirror_url.rstrip('/').split('/')[-1]
+    base_path = apkmirror_url.replace("https://www.apkmirror.com", "").strip('/')
+    cat_name = base_path.split('/')[-1]
     version_slug = f"{cat_name}-{version.replace('.', '-')}-release"
-    version_url = f"https://www.apkmirror.com/apk/google-inc/{cat_name}/{version_slug}/"
-    if "reddit" in cat_name:
-        version_url = f"https://www.apkmirror.com/apk/redditinc/reddit/{version_slug}/"
+    version_url = f"https://www.apkmirror.com/{base_path}/{version_slug}/"
         
     html = get_html(version_url)
     if not html:
