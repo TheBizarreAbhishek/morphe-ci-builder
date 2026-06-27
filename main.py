@@ -323,9 +323,19 @@ def main():
             info["target_version"] = target_version
             return True
 
-        # If auto mode and we have a list of compatible versions, try them highest-to-lowest
-        if version_mode == "auto" and supported_versions_desc:
-            for ver in supported_versions_desc:
+        # Build an ordered list of versions to try: patch-supported (desc) then archive.org (desc)
+        versions_to_try = list(supported_versions_desc)  # already highest-to-lowest
+        
+        # Also add archive.org versions (they may include versions the patcher didn't list
+        # but are still compatible, or are below the patcher's known minimum)
+        if archive_dlurl:
+            archive_vers = get_archive_versions(archive_dlurl)
+            for v in reversed(archive_vers):  # highest-to-lowest
+                if v not in versions_to_try:
+                    versions_to_try.append(v)
+
+        if version_mode in ("auto", "latest") and versions_to_try:
+            for ver in versions_to_try:
                 if ver == target_version:
                     continue  # Already tried
                 print(f"[*] {app_name}: Trying fallback version {ver}...", file=sys.stderr)
