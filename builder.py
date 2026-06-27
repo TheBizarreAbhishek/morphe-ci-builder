@@ -114,11 +114,13 @@ def get_patch_supported_versions(cli_jar, patches_jar, pkg_name):
                 
         # If valid_versions is empty, try running the list-patches with fallback arguments
         if not valid_versions:
+            print(f"[-] Parsing failed for primary command. Output:\n{output}")
             # Fallback format: --patches instead of -p, -f instead of --filter-package-name
             cmd = ["java", "-jar", cli_jar, "list-patches", "--patches", patches_jar, "-f", pkg_name]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            output = result.stdout + result.stderr
-            matches = version_pattern.findall(output)
+            output_fallback = result.stdout + result.stderr
+            print(f"[-] Parsing failed for fallback command. Output:\n{output_fallback}")
+            matches = version_pattern.findall(output_fallback)
             for m in matches:
                 parts = m.split('.')
                 if len(parts) >= 2 and all(p.isdigit() for p in parts):
