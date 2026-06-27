@@ -26,11 +26,12 @@ def download_file(url, output_path):
                 return False
             out_file.write(data)
             
-        # Check if the zip is a monolithic APK containing AndroidManifest.xml
+        # Verify the ZIP structure (for both JARs and APKs)
         try:
             with zipfile.ZipFile(output_path, 'r') as z:
                 namelist = z.namelist()
-                if "AndroidManifest.xml" not in namelist:
+                # AndroidManifest.xml check is only applicable for APK files
+                if output_path.endswith('.apk') and "AndroidManifest.xml" not in namelist:
                     print(f"[-] Download rejected: File is a split APK bundle or missing AndroidManifest.xml", file=sys.stderr)
                     if os.path.exists(output_path):
                         os.remove(output_path)
