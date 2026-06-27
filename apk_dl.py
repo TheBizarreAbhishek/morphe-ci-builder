@@ -216,7 +216,12 @@ def download_apkmirror(apkmirror_url, version, arch, output_path):
     direct_link = None
     for link in links:
         if "download.php?id=" in link and "key=" in link:
-            direct_link = f"https://www.apkmirror.com/wp-content/themes/APKMirror/{link}"
+            if link.startswith("http"):
+                direct_link = link
+            elif link.startswith("/"):
+                direct_link = f"https://www.apkmirror.com{link}"
+            else:
+                direct_link = f"https://www.apkmirror.com/wp-content/themes/APKMirror/{link}"
             break
             
     if not direct_link:
