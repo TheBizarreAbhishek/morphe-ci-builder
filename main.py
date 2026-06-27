@@ -366,11 +366,6 @@ def main():
         if os.path.exists(unsigned_patched_apk):
             os.remove(unsigned_patched_apk)
             
-        # Copy stock APK for patching and strip architectures
-        stock_apk_to_patch = os.path.join(temp_dir, f"stock-patching-{pkg_name}.apk")
-        shutil.copy2(stock_apk, stock_apk_to_patch)
-        strip_apk_native_libs(stock_apk_to_patch, arch)
-        
         # Add integrations parameter if integrations file is available
         patch_cmd_args = patcher_args
         if integrations_apk and os.path.exists(integrations_apk):
@@ -379,7 +374,7 @@ def main():
         patched = run_patching_cli(
             cli_jar=cli_jar,
             patches_jar=patches_jar,
-            stock_apk=stock_apk_to_patch,
+            stock_apk=stock_apk,
             unsigned_patched_apk=unsigned_patched_apk,
             excluded_patches=excluded_patches,
             included_patches=included_patches,
@@ -387,13 +382,13 @@ def main():
             patcher_args=patch_cmd_args
         )
         
-        if os.path.exists(stock_apk_to_patch):
-            os.remove(stock_apk_to_patch)
-            
         if not patched or not os.path.exists(unsigned_patched_apk):
             print(f"[-] Patching failed for {app_name}.", file=sys.stderr)
             continue
             
+        # Strip unused architectures from the patched unsigned APK to save size
+        strip_apk_native_libs(unsigned_patched_apk, arch)
+        
         # Sign the patched APK
         signed_apk = os.path.join(temp_dir, f"patched-signed-{pkg_name}.apk")
         if os.path.exists(signed_apk):
