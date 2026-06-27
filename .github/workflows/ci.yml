@@ -1,0 +1,56 @@
+name: CI Scheduler
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 16 * * *"  # Runs daily at 16:00 UTC
+
+jobs:
+  check:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Check for updates
+        id: should_build
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Fetch update branch build.md if it exists
+          if git checkout origin/update build.md; then
+            echo "[+] Fetched build.md from update branch."
+          else
+            echo "[+] No existing build.md. Triggering build."
+            echo "SHOULD_BUILD=1" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Run script check
+          UPDATE_CFG=$(python main.py --config-update)
+          if [ -n "$UPDATE_CFG" ]; then
+            echo "[+] Updates detected for: $UPDATE_CFG"
+            echo "SHOULD_BUILD=1" >> $GITHUB_OUTPUT
+          else
+            echo "[+] No new patch updates found."
+            echo "SHOULD_BUILD=0" >> $GITHUB_OUTPUT
+          fi
+
+    outputs:
+      SHOULD_BUILD: ${{ steps.should_build.outputs.SHOULD_BUILD }}
+
+  build:
+    needs: check
+    if: ${{ needs.check.outputs.SHOULD_BUILD == '1' }}
+    permissions: write-all
+    uses: ./.github/workflows/build.yml
+    secrets: inherit

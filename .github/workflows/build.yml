@@ -1,0 +1,59 @@
+name: Build Modules
+
+on:
+  workflow_call:
+    inputs:
+      from_ci:
+        type: boolean
+        required: false
+        default: true
+  workflow_dispatch:
+
+jobs:
+  run:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Get next version code
+        id: next_ver_code
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Fetch last release tag
+          TAG=$(gh release list -L 1 | awk -F '\t' '{print $3}')
+          if [ -z "$TAG" ] || ! [[ "$TAG" =~ ^[0-9]+$ ]]; then
+            TAG=0
+          fi
+          echo "NEXT_VER_CODE=$((TAG + 1))" >> $GITHUB_OUTPUT
+          echo "[+] Next version code is: $((TAG + 1))"
+
+      - name: Fetch build.md from update branch
+        run: |
+          git checkout origin/update build.md || echo "[*] First time building, no build.md to fetch."
+
+      - name: Run Build Script
+        run: |
+          python main.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          NEXT_VER_CODE: ${{ steps.next_ver_code.outputs.NEXT_VER_CODE }}
+          KS_PASS: ${{ secrets.KS_PASS }}
+          KS_ALIAS: ${{ secrets.KS_ALIAS }}

@@ -1,0 +1,12 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local build outputs
+build/
+temp/
+
+# OS metadata
+.DS_Store
+Thumbs.db
