@@ -149,11 +149,13 @@ def resolve_app_download_info(app, bin_dir, temp_dir):
     
     # 1. Resolve compatible versions
     supported_versions = get_patch_supported_versions(cli_jar, patches_jar, pkg_name)
+    # sorted ascending by version number; we'll try from highest to lowest at download time
+    supported_versions_desc = list(reversed(supported_versions)) if supported_versions else []
     
     target_version = None
     if version_mode == "auto":
         if supported_versions:
-            target_version = supported_versions[-1]
+            target_version = supported_versions[-1]  # start with highest compatible
         else:
             version_mode = "latest"
             
@@ -184,6 +186,8 @@ def resolve_app_download_info(app, bin_dir, temp_dir):
         "patches_jar": patches_jar,
         "integrations_apk": integrations_apk,
         "target_version": target_version,
+        "supported_versions_desc": supported_versions_desc,
+        "version_mode": version_mode,
         "stock_apk": stock_apk,
         "apk_source": apk_source,
         "apkmirror_dlurl": apkmirror_dlurl,
@@ -286,23 +290,53 @@ def main():
         archive_dlurl = info["archive_dlurl"]
         apkmirror_dlurl = info["apkmirror_dlurl"]
         target_version = info["target_version"]
+        supported_versions_desc = info.get("supported_versions_desc", [])
+        version_mode = info.get("version_mode", "auto")
         arch = info["arch"]
+        pkg_name = info["pkg_name"]
+        app_name = info["app_name"]
         
-        download_success = False
-        if direct_dlurl:
-            download_success = download_file(direct_dlurl, stock_apk)
-        elif apk_source == "archive" and archive_dlurl:
-            download_success = download_archive(archive_dlurl, target_version, arch, stock_apk)
-        elif apk_source == "apkmirror" and apkmirror_dlurl:
-            download_success = download_apkmirror(apkmirror_dlurl, target_version, arch, stock_apk)
-            
-        if not download_success:
+        def try_download(version):
+            """Try APKMirror first, then archive.org fallback for a given version."""
+            out_path = os.path.join(temp_dir, f"stock-{pkg_name}-{version}-{arch}.apk")
+            if os.path.exists(out_path):
+                return out_path
+            # Direct URL takes priority
+            if direct_dlurl:
+                if download_file(direct_dlurl, out_path):
+                    return out_path
+                return None
+            # Try APKMirror
+            if apkmirror_dlurl:
+                if download_apkmirror(apkmirror_dlurl, version, arch, out_path):
+                    return out_path
+            # Try archive.org fallback
             if archive_dlurl:
-                download_success = download_archive(archive_dlurl, target_version, arch, stock_apk)
-            elif apkmirror_dlurl:
-                download_success = download_apkmirror(apkmirror_dlurl, target_version, arch, stock_apk)
-                
-        return download_success
+                if download_archive(archive_dlurl, version, arch, out_path):
+                    return out_path
+            return None
+
+        # Try the primary target version first
+        result_path = try_download(target_version)
+        if result_path:
+            info["stock_apk"] = result_path
+            info["target_version"] = target_version
+            return True
+
+        # If auto mode and we have a list of compatible versions, try them highest-to-lowest
+        if version_mode == "auto" and supported_versions_desc:
+            for ver in supported_versions_desc:
+                if ver == target_version:
+                    continue  # Already tried
+                print(f"[*] {app_name}: Trying fallback version {ver}...", file=sys.stderr)
+                result_path = try_download(ver)
+                if result_path:
+                    print(f"[+] {app_name}: Successfully downloaded version {ver} as fallback.")
+                    info["stock_apk"] = result_path
+                    info["target_version"] = ver
+                    return True
+
+        return False
 
     # Check if we need to download GmsCore (if any app compiles standalone APKs)
     has_apk_builds = any(info["app"].get("build_mode", "both") in ("apk", "both") for info in resolved_apps)
