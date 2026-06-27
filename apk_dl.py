@@ -26,17 +26,20 @@ def download_file(url, output_path):
                 return False
             out_file.write(data)
             
-        # Check if the zip is a bundle containing base.apk
+        # Check if the zip is a monolithic APK containing AndroidManifest.xml
         try:
             with zipfile.ZipFile(output_path, 'r') as z:
                 namelist = z.namelist()
-                if "base.apk" in namelist and "AndroidManifest.xml" not in namelist:
-                    print("[+] Downloaded file is a split APK bundle. Extracting base.apk as the target APK...")
-                    out_dir = os.path.dirname(output_path)
-                    z.extract("base.apk", path=out_dir)
-                    os.replace(os.path.join(out_dir, "base.apk"), output_path)
+                if "AndroidManifest.xml" not in namelist:
+                    print(f"[-] Download rejected: File is a split APK bundle or missing AndroidManifest.xml", file=sys.stderr)
+                    if os.path.exists(output_path):
+                        os.remove(output_path)
+                    return False
         except Exception as ze:
-            print(f"[*] Warning: ZIP post-processing check failed: {ze}", file=sys.stderr)
+            print(f"[-] Download verification failed: {ze}", file=sys.stderr)
+            if os.path.exists(output_path):
+                os.remove(output_path)
+            return False
             
         print(f"[+] Download complete: {output_path}")
         return True
