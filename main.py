@@ -369,7 +369,7 @@ def main():
         # Add integrations parameter if integrations file is available
         patch_cmd_args = patcher_args
         if integrations_apk and os.path.exists(integrations_apk):
-            patch_cmd_args += f" -m '{integrations_apk}'"
+            patch_cmd_args += f" --mount '{integrations_apk}'"
             
         patched = run_patching_cli(
             cli_jar=cli_jar,

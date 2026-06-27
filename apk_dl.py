@@ -18,6 +18,11 @@ def download_file(url, output_path):
     try:
         with urllib.request.urlopen(req, timeout=30) as response, open(output_path, 'wb') as out_file:
             data = response.read()
+            if not data.startswith(b"PK\x03\x04"):
+                snippet = data[:500].decode('utf-8', errors='ignore')
+                print(f"[-] Download failed: Not a valid ZIP/APK archive. Magic: {data[:4]}", file=sys.stderr)
+                print(f"[-] Content Snippet:\n{snippet}\n", file=sys.stderr)
+                return False
             out_file.write(data)
         print(f"[+] Download complete: {output_path}")
         return True
